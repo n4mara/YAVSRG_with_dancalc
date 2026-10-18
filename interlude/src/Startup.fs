@@ -3,7 +3,10 @@
 open Percyqaz.Common
 open Percyqaz.Flux.Audio
 open Percyqaz.Flux.Windowing
+open System
+open System.IO
 open Prelude
+open Prelude.Calculator.Dan
 open Interlude.Options
 open Interlude.Content
 open Interlude.Features.Gameplay
@@ -26,6 +29,12 @@ module Startup =
     let init (instance: int) : Screen.ScreenRoot =
         Options.init ()
         Content.Init ()
+        let msd_path = Path.Combine(AppContext.BaseDirectory, "DanCalc", "msd.exe")
+        Msd.configure msd_path
+
+        match Msd.is_available () with
+        | true -> Logging.Info "DanCalc MSD ready (%s)" msd_path
+        | false -> Logging.Warn "DanCalc MSD unavailable (%s)" (Msd.last_failure ())
 
         let post_init_thunk () =
 

@@ -1,11 +1,17 @@
 namespace Interlude.Features.LevelSelect
 
+open System
+open System.Threading
 open Percyqaz.Common
 open Percyqaz.Flux.Graphics
 open Percyqaz.Flux.UI
+open Percyqaz.Flux.Windowing
 open Prelude
+open Prelude.Charts
 open Prelude.Calculator
+open Prelude.Calculator.Dan
 open Prelude.Mods
+open Interlude.Options
 open Interlude.UI
 open Interlude.Features.Gameplay
 
@@ -19,6 +25,61 @@ type GameplayInfo() =
     let mutable last_played = K never_played
     let mutable mod_string = "--"
     let mutable mod_status = ModStatus.Ranked
+    let mutable dan_label = "--"
+    let mutable dan_debug = ""
+    let mutable dan_accent = Color.White
+    let mutable dan_debug_on = options.DanCalcDebug.Value
+    let mutable dan_generation = 0
+
+    let refresh_dan (info: LoadedChartInfo) =
+        dan_debug_on <- options.DanCalcDebug.Value
+        dan_label <- "--"
+        dan_debug <- ""
+        dan_accent <- Color.White
+
+        if not options.DanCalcEnabled.Value then
+            ()
+        else
+            let generation = Interlocked.Increment(&dan_generation)
+            let rate = SelectedChart.rate.Value
+            let note_data = info.Chart.ToNoteData()
+            let chart_hash = info.ChartMeta.Hash
+            let mod_fingerprint = "base"
+            let bpm = info.ChartMeta.BPM
+            let show_debug = dan_debug_on
+
+            let od =
+                info.ChartMeta.Origins
+                |> Seq.tryPick (function
+                    | ChartOrigin.Osu o -> Some(float o.SourceOD)
+                    | _ -> None)
+                |> Option.defaultValue Adapter.DEFAULT_OD
+
+            async {
+                let result =
+                    DanCalc.analyze_cached(chart_hash, mod_fingerprint, rate, note_data, bpm, od)
+
+                GameThread.defer (fun () ->
+                    if generation = dan_generation then
+                        match result with
+                        | Some dan ->
+                            dan_label <- Format.format dan
+                            dan_accent <- dan.Accent
+
+                            match show_debug, dan.Debug with
+                            | true, Some d ->
+                                let line = Format.format_debug d
+                                dan_debug <- line
+                                Logging.Info "DanCalc: %s | %s" dan_label line
+                            | true, None -> dan_debug <- ""
+                            | false, _ -> dan_debug <- ""
+                        | None ->
+                            dan_label <- "--"
+                            dan_accent <- Color.White
+                            dan_debug <- if show_debug then "domain reject / no result" else ""
+                )
+            }
+            |> Async.Start
 
     let refresh (info: LoadedChartInfo) =
         rating <- info.Difficulty.Overall
@@ -44,6 +105,7 @@ type GameplayInfo() =
 
         mod_string <- ModState.format(SelectedChart.rate.Value, SelectedChart.selected_mods.Value)
         mod_status <- info.WithMods.Status
+        refresh_dan info
 
     static member HEIGHT = 230.0f
 
@@ -55,6 +117,12 @@ type GameplayInfo() =
         this.Add(GameplayInfoBoxes().Position(Position.SliceT(100.0f).Shrink(10.0f)))
 
         base.Init(parent)
+
+    override this.Update(elapsed_ms: float, moved: bool) : unit =
+        base.Update(elapsed_ms, moved)
+
+        if options.DanCalcEnabled.Value && options.DanCalcDebug.Value <> dan_debug_on then
+            SelectedChart.if_loaded refresh_dan
 
     override this.Draw() : unit =
 
@@ -88,17 +156,51 @@ type GameplayInfo() =
 
         Text.fill_b(Style.font, notecounts, chart_info, Colors.text_subheading, Alignment.RIGHT)
 
-        let three_icon_infos = this.Bounds.SliceT(155.0f, 70.0f).ShrinkX(15.0f)
+        let icon_infos = this.Bounds.SliceT(155.0f, 70.0f).ShrinkX(15.0f)
+        let stars = sprintf "%s %.2f" Icons.STAR rating
 
-        Text.fill_b(
-            Style.font,
-            sprintf "%s %.2f" Icons.STAR rating,
-            three_icon_infos,
-            (Colors.white, Difficulty.color rating),
-            Alignment.LEFT
-        )
+        if options.DanCalcEnabled.Value then
+            let col_w = icon_infos.Width * 0.25f
 
-        Text.fill_b(Style.font, SelectedChart.FMT_BPM, three_icon_infos, Colors.text, Alignment.CENTER)
-        Text.fill_b(Style.font, SelectedChart.FMT_DURATION, three_icon_infos, Colors.text, Alignment.RIGHT)
+            Text.fill_b(
+                Style.font,
+                stars,
+                icon_infos.SliceL(col_w),
+                (Colors.white, Difficulty.color rating),
+                Alignment.LEFT
+            )
+
+            Text.fill_b(
+                Style.font,
+                dan_label,
+                icon_infos.ShrinkL(col_w).SliceL(col_w),
+                (dan_accent, Colors.shadow_2),
+                Alignment.CENTER
+            )
+
+            Text.fill_b(
+                Style.font,
+                SelectedChart.FMT_BPM,
+                icon_infos.ShrinkL(col_w * 2.0f).SliceL(col_w),
+                Colors.text,
+                Alignment.CENTER
+            )
+
+            Text.fill_b(Style.font, SelectedChart.FMT_DURATION, icon_infos.SliceR(col_w), Colors.text, Alignment.RIGHT)
+
+            if dan_debug <> "" then
+                let debug_bounds = this.Bounds.SliceB(22.0f).ShrinkX(10.0f)
+                Text.fill_b(Style.font, dan_debug, debug_bounds, Colors.text_greyout, Alignment.LEFT)
+        else
+            Text.fill_b(
+                Style.font,
+                stars,
+                icon_infos,
+                (Colors.white, Difficulty.color rating),
+                Alignment.LEFT
+            )
+
+            Text.fill_b(Style.font, SelectedChart.FMT_BPM, icon_infos, Colors.text, Alignment.CENTER)
+            Text.fill_b(Style.font, SelectedChart.FMT_DURATION, icon_infos, Colors.text, Alignment.RIGHT)
 
         base.Draw()
