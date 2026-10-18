@@ -125,6 +125,19 @@ Information, future updates and support available at:
 
         File.Copy(Path.Combine(build_dir, "publish", info.ExecutableFile), Path.Combine(clean_dir, info.ExecutableFile))
 
+        let msd_src = Path.Combine(build_dir, "publish", "DanCalc", "msd.exe")
+        let msd_dst_dir = Path.Combine(clean_dir, "DanCalc")
+
+        if File.Exists msd_src then
+            Directory.CreateDirectory msd_dst_dir |> ignore
+            File.Copy(msd_src, Path.Combine(msd_dst_dir, "msd.exe"), true)
+        else
+            let fallback = Path.Combine(INTERLUDE_SOURCE_PATH, "Resources", "DanCalc", "msd.exe")
+
+            if File.Exists fallback then
+                Directory.CreateDirectory msd_dst_dir |> ignore
+                File.Copy(fallback, Path.Combine(msd_dst_dir, "msd.exe"), true)
+
         File.Copy(
             Path.Combine(build_dir, "publish", info.GLFWLibraryFile),
             Path.Combine(clean_dir, info.GLFWLibraryFile)

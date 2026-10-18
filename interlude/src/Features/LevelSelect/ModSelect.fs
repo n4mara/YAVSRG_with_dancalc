@@ -122,7 +122,7 @@ type private ModSelectPage(change_rate: Rate -> unit) =
             GridFlowContainer<ModSelector>(ModSelector.HEIGHT, 3)
                 .Spacing(20.0f)
                 .WrapNavigation(false)
-                .Pos(5, PAGE_BOTTOM - 5, PageWidth.Full)
+                .Pos(5, 9, PageWidth.Full)
                 .With(
                     ModSelector(
                         "auto",
@@ -200,10 +200,19 @@ type private ModSelectPage(change_rate: Rate -> unit) =
 
                 mod_grid,
 
+                PageSetting(%"mods.dancalc.enabled", Checkbox options.DanCalcEnabled)
+                    .Help(Help.Info("mods.dancalc.enabled"))
+                    .Pos(14),
+
+                PageSetting(%"mods.dancalc.debug", Checkbox options.DanCalcDebug)
+                    .Help(Help.Info("mods.dancalc.debug"))
+                    .Pos(16)
+                    .Conditional(options.DanCalcEnabled.Get),
+
                 PageButton(%"gameplay.pacemaker", fun () -> PacemakerOptionsPage().Show())
                     .Icon(Icons.FLAG)
                     .Help(Help.Info("gameplay.pacemaker"))
-                    .Pos(19),
+                    .Pos(18),
 
                 PageSetting(
                     %"mods.mod_status",
@@ -223,7 +232,7 @@ type private ModSelectPage(change_rate: Rate -> unit) =
                         )
                         .Align(Alignment.LEFT)
                 )
-                    .Pos(21)
+                    .Pos(20, 1)
             )
 
     override this.Update(elapsed_ms: float, moved: bool) : unit =

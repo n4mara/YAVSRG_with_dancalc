@@ -178,6 +178,8 @@ type GameOptions =
         QuitOutBehaviour: Setting<QuitOutBehaviour>
         OnlySaveNewRecords: Setting<bool>
         SelectedMods: Setting<ModState>
+        DanCalcEnabled: Setting<bool>
+        DanCalcDebug: Setting<bool>
 
         OsuMount: Setting<MountedChartSource option>
         QuaverMount: Setting<MountedChartSource option>
@@ -248,6 +250,8 @@ type GameOptions =
             QuitOutBehaviour = Setting.simple QuitOutBehaviour.SaveAndShow
             OnlySaveNewRecords = Setting.simple false
             SelectedMods = Setting.simple Map.empty
+            DanCalcEnabled = Setting.simple true
+            DanCalcDebug = Setting.simple false
 
             OsuMount = Setting.simple None
             QuaverMount = Setting.simple None

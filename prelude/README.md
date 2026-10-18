@@ -1,5 +1,15 @@
-# YAVSRG :: Prelude
 
+
+Dan calculator looks like this rn:
+
+![Dan calculator](https://i.imgur.com/UMbbGV9.png)
+
+I took that dan-calculating algorithm [Dan calculator](https://github.com/acarranzao1a-png/Dan-Overlay) 
+
+
+
+
+# YAVSRG :: Prelude
 This is the rhythm game framework [Interlude](https://github.com/YAVSRG/Interlude) runs on.
 It provides the core elements of the game as a class library but no game engine features like rendering/playing sound/getting keyboard input.
 In the future, this will also provide the core elements needed for a full rhythm game chart editor.
