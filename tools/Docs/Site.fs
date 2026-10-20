@@ -1,4 +1,4 @@
-﻿namespace YAVSRG.CLI
+namespace YAVSRG.CLI
 
 open System.Text.RegularExpressions
 open System.IO
@@ -13,15 +13,15 @@ module Site =
             | Heading(size, body, _) -> sprintf "<h%i class=\"text-3xl\">%s</h%i>" size (spans body) size
             | Paragraph(body, _) -> sprintf "<p class=\"leading-8 mb-4\">%s</p>" (spans body)
             | Span(body, _) -> spans body
-            | ListBlock(kind, items, _) ->
+            | ListBlock(_kind, items, _) ->
                 let content =
                     items
-                    |> List.map (fun ps -> sprintf "<li class=\"ml-8 list-disc\">%s</li>" (paragraphs ps))
+                    |> List.map(fun ps -> sprintf "<li class=\"ml-8 list-disc\">%s</li>" (paragraphs ps))
                     |> String.concat ""
 
                 sprintf "<ul>%s</ul>" content
-            | HorizontalRule(char, _) -> "<hr/>"
-            | CodeBlock(code, _, _, language, _, _) -> sprintf "<code>%s</code>" code
+            | HorizontalRule(_char, _) -> "<hr/>"
+            | CodeBlock(code, _, _, _language, _, _) -> sprintf "<code>%s</code>" code
             | QuotedBlock(ps, _) -> sprintf "<blockquote>%s<blockquote>" (paragraphs ps)
             | YamlFrontmatter _
             | TableBlock _
@@ -42,16 +42,16 @@ module Site =
             | InlineCode(code, _) -> sprintf "<code>%s</code>" code
             | Strong(body, _) -> sprintf "<strong>%s</strong>" (spans body)
             | Emphasis(body, _) -> sprintf "<em>%s</em>" (spans body)
-            | DirectLink(body, link, title, _) -> sprintf "<a class=\"underline\" href=\"%s\">%s</a>" link (spans body)
-            | DirectImage(body, link, title, _) ->
+            | DirectLink(body, link, _title, _) -> sprintf "<a class=\"underline\" href=\"%s\">%s</a>" link (spans body)
+            | DirectImage(_body, link, title, _) ->
                 sprintf "<img class=\"feature\" src=\"%s\" alt=\"%s\" />" link (Option.defaultValue "" title)
-            | IndirectImage(body, link, key, _) -> ""
-            | IndirectLink(body, original, key, _) -> ""
-            | AnchorLink(link, _) -> ""
+            | IndirectImage(_body, _link, _key, _) -> ""
+            | IndirectLink(_body, _original, _key, _) -> ""
+            | AnchorLink(_link, _) -> ""
             | HardLineBreak _ -> "<br/>"
-            | EmbedSpans(customSpans, _) -> ""
-            | LatexDisplayMath(code, _) -> ""
-            | LatexInlineMath(code, _) -> ""
+            | EmbedSpans(_custom_spans, _) -> ""
+            | LatexDisplayMath(_code, _) -> ""
+            | LatexInlineMath(_code, _) -> ""
 
         let render_document (md: MarkdownDocument) = paragraphs md.Paragraphs
 
@@ -76,15 +76,15 @@ module Site =
             try
                 let header =
                     split.[1].Split("\n")
-                    |> Array.map (fun line ->
+                    |> Array.map(fun line ->
                         let parts = line.Split(":", System.StringSplitOptions.TrimEntries) in (parts.[0], parts.[1])
                     )
                     |> Map.ofSeq
 
-                if not (header.ContainsKey "title") then
+                if not(header.ContainsKey("title")) then
                     failwith "Page is missing 'title'"
 
-                if not (header.ContainsKey "folder") then
+                if not(header.ContainsKey("folder")) then
                     failwith "Page is missing 'folder'"
 
                 header
@@ -93,8 +93,8 @@ module Site =
 
         let html =
             split.[2].Split("::::", System.StringSplitOptions.TrimEntries)
-            |> Array.map (Markdown.Parse >> MarkdownToHtml.render_document)
-            |> Array.map (sprintf "<div class=\"frame text-2xl container flex flex-col mx-auto p-4\">%s</div>")
+            |> Array.map(Markdown.Parse >> MarkdownToHtml.render_document)
+            |> Array.map(sprintf "<div class=\"frame text-2xl container flex flex-col mx-auto p-4\">%s</div>")
             |> String.concat ""
 
         {
@@ -109,10 +109,8 @@ module Site =
 
         let template = File.ReadAllText(Path.Combine(SITE_PATH, "templates", "index.html"))
 
-        template
-            .Replace("{{latest_release}}", version)
-            .Replace("{{latest_release_date}}", today)
-        |> fun t -> File.WriteAllText((Path.Combine(SITE_PATH, "files", "index.html")), t)
+        template.Replace("{{latest_release}}", version).Replace("{{latest_release_date}}", today)
+        |> fun t -> File.WriteAllText(Path.Combine(SITE_PATH, "files", "index.html"), t)
 
     let generate_site () =
 
@@ -122,13 +120,12 @@ module Site =
             File.ReadAllText(Path.Combine(SITE_PATH, "templates", "changelog.html"))
 
         let build_page (file: string) (title: string) (content: string) =
-            template.Replace("{{title}}", title).Replace("{{content}}", content)
-            |> fun t -> File.WriteAllText(file, t)
+            template.Replace("{{title}}", title).Replace("{{content}}", content) |> fun t -> File.WriteAllText(file, t)
 
         let build_mpage (file: string) (title: string) (contents: string array) =
             let content =
                 contents
-                |> Array.map (sprintf "<div class=\"frame text-2xl container flex flex-col mx-auto p-4\">%s</div>")
+                |> Array.map(sprintf "<div class=\"frame text-2xl container flex flex-col mx-auto p-4\">%s</div>")
                 |> String.concat ""
 
             changelog_template.Replace("{{title}}", title).Replace("{{content}}", content)
@@ -144,17 +141,17 @@ module Site =
 
         let re = Regex("(?=\s[0-9]\.[0-9]+\.[0-9]+.*\s*\=\=\=\=)")
 
-        File.ReadAllText(Path.Combine(YAVSRG_PATH, "interlude", "docs", "changelog.md"))
+        File.ReadAllText(FULL_CHANGELOG_PATH)
         |> re.Split
-        |> Array.map (fun s -> s.Trim())
+        |> Array.map _.Trim()
         |> Array.except [ "" ]
         |> Array.map Markdown.Parse
         |> Array.map MarkdownToHtml.render_document
         |> build_mpage (Path.Combine(SITE_PATH, "files", "interlude", "changelog.html")) "Changelog"
 
         let wiki_pages =
-            Directory.EnumerateFiles(Path.Combine(YAVSRG_PATH, "interlude", "docs", "wiki"))
-            |> Seq.filter (fun f -> f.EndsWith ".md" && not (f.EndsWith "index.md"))
+            Directory.EnumerateFiles(WIKI_FILES_PATH)
+            |> Seq.filter(fun f -> f.EndsWith(".md") && not(f.EndsWith("index.md")))
             |> Seq.map parse_wiki_file
             |> Array.ofSeq
 
@@ -163,14 +160,14 @@ module Site =
                 "<hr/><div class=\"ml-3\"><h2>%s</h2><ul class=\"ml-8 list-disc\">%s</ul></div>"
                 folder
                 (pages
-                 |> Seq.map (fun page ->
+                 |> Seq.map(fun page ->
                      sprintf "<li class=\"\"><a href=\"%s\">%s</a></li>" (page.Filename + ".html") page.Title
                  )
                  |> String.concat "")
 
         let wiki_sidebar_content =
             wiki_pages
-            |> Seq.groupBy (fun p -> p.Folder)
+            |> Seq.groupBy(fun p -> p.Folder)
             |> Seq.map wiki_section
             |> String.concat ""
             |> sprintf
@@ -188,13 +185,11 @@ module Site =
 
         let content =
             File
-                .ReadAllText(Path.Combine(YAVSRG_PATH, "interlude", "docs", "wiki", "index.md"))
+                .ReadAllText(Path.Combine(WIKI_FILES_PATH, "index.md"))
                 .Split([| "::::" |], System.StringSplitOptions.TrimEntries)
-            |> Array.map (Markdown.Parse >> MarkdownToHtml.render_document)
-            |> Array.map (sprintf "<div class=\"frame text-2xl container flex flex-col mx-auto p-4\">%s</div>")
+            |> Array.map(Markdown.Parse >> MarkdownToHtml.render_document)
+            |> Array.map(sprintf "<div class=\"frame text-2xl container flex flex-col mx-auto p-4\">%s</div>")
             |> String.concat ""
 
-        wiki_template
-            .Replace("{{title}}", "Interlude Wiki")
-            .Replace("{{content}}", content + wiki_sidebar_content)
+        wiki_template.Replace("{{title}}", "Interlude Wiki").Replace("{{content}}", content + wiki_sidebar_content)
         |> fun t -> File.WriteAllText(Path.Combine(SITE_PATH, "files", "interlude", "wiki", "index.html"), t)
