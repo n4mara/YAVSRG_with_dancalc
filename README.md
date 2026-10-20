@@ -1,8 +1,10 @@
 Dan calculator looks like this rn:
 
-![Dan calculator](https://i.imgur.com/UMbbGV9.png)
+![Dan calculator](https://i.imgur.com/XRS1DGk.png)
 
 I took that dan-calculating algorithm [Dan calculator](https://github.com/acarranzao1a-png/Dan-Overlay) 
+
+Turn on\off dan calculator in options-> gameplay and scroll down
 
 <img src="https://github.com/YAVSRG/YAVSRG/assets/21290233/f3a88ac6-431a-46a1-9351-95266f30fe70.png" align="left" height="240">
 
