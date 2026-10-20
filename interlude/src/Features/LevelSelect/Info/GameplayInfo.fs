@@ -42,9 +42,16 @@ type GameplayInfo() =
         else
             let generation = Interlocked.Increment(&dan_generation)
             let rate = SelectedChart.rate.Value
-            let note_data = info.Chart.ToNoteData()
+            let mods_for_dan = Map.remove "mirror" SelectedChart.selected_mods.Value
+            let note_data = (ModState.apply mods_for_dan info.Chart).ToNoteData()
             let chart_hash = info.ChartMeta.Hash
-            let mod_fingerprint = "base"
+
+            let mod_fingerprint =
+                mods_for_dan
+                |> ModState.in_priority_order
+                |> Seq.map (fun (id, _, state) -> sprintf "%s:%i" id state)
+                |> String.concat ","
+
             let bpm = info.ChartMeta.BPM
             let show_debug = dan_debug_on
 

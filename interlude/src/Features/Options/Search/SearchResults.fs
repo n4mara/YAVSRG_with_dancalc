@@ -128,6 +128,18 @@ module SearchResults =
             if token_match tokens [| %"gameplay.on_quit_out" |] then
                 yield GameplayPage.OnQuitOut()
 
+            if
+                token_match
+                    tokens
+                    [|
+                        %"gameplay.dancalc"
+                        %"gameplay.dancalc.enabled"
+                        %"gameplay.dancalc.debug"
+                    |]
+            then
+                yield GameplayPage.DanCalcEnabled()
+                yield GameplayPage.DanCalcDebug()
+
             if token_match tokens [| %"rulesets" |] then
                 yield LibraryPage.ManageRulesets(), 2, 3, PageWidth.Normal
 

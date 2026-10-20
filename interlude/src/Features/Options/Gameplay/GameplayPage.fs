@@ -8,6 +8,16 @@ open Interlude.UI
 open Interlude.Features.Pacemaker
 open Interlude.Features.Skins
 
+type private TallPageContent(height: float32, node_type: NodeType) =
+    inherit Container(node_type)
+
+    interface IHeight with
+        member this.Height = height
+
+    static member Create(end_row: int, child: Widget) : TallPageContent =
+        let h = float32 end_row * 0.5f * PAGE_ITEM_HEIGHT
+        TallPageContent(h, NodeType.Container(K(Some child))).With(child)
+
 type GameplayPage() =
     inherit Page()
 
@@ -72,25 +82,42 @@ type GameplayPage() =
     static member Keybinds() : PageButton =
         PageButton(%"gameplay.keybinds", fun () -> GameplayBindsPage().Show()).Help(Help.Info("gameplay.keybinds"))
 
+    static member DanCalcEnabled() : PageSetting =
+        PageSetting(%"gameplay.dancalc.enabled", Checkbox options.DanCalcEnabled)
+            .Help(Help.Info("gameplay.dancalc.enabled"))
+
+    static member DanCalcDebug() : PageSetting =
+        PageSetting(%"gameplay.dancalc.debug", Checkbox options.DanCalcDebug)
+            .Help(Help.Info("gameplay.dancalc.debug"))
+
     override this.Content() : Widget =
         let preview = new SkinPreview(SkinPreview.RIGHT_HAND_SIDE(0.35f).TranslateY(200.0f))
         this.DisposeOnDestroy(preview)
 
-        page_container()
-            .With(
-                GameplayPage.ScrollSpeed().Pos(0),
-                GameplayPage.HitPosition().Pos(3),
-                GameplayPage.Upscroll().Pos(5),
-                GameplayPage.BackgroundDim().Pos(7),
-                GameplayPage.HoldToGiveUp().Pos(9),
-                GameplayPage.HideHitNotes().Pos(11),
-                GameplayPage.OnQuitOut().Pos(13),
-                GameplayPage.Lanecover().Pos(16),
-                GameplayPage.Pacemaker().Pos(18),
-                GameplayPage.Keybinds().Pos(21)
-            )
-        |> Container.Create
-        |> fun container -> container.With(preview)
-        :> Widget
+        let settings =
+            NavigationContainer
+                .Column()
+                .WrapNavigation(false)
+                .With(
+                    GameplayPage.ScrollSpeed().Pos(0),
+                    GameplayPage.HitPosition().Pos(3),
+                    GameplayPage.Upscroll().Pos(5),
+                    GameplayPage.BackgroundDim().Pos(7),
+                    GameplayPage.HoldToGiveUp().Pos(9),
+                    GameplayPage.HideHitNotes().Pos(11),
+                    GameplayPage.OnQuitOut().Pos(13),
+                    GameplayPage.Lanecover().Pos(16),
+                    GameplayPage.Pacemaker().Pos(18),
+                    GameplayPage.Keybinds().Pos(21),
+                    GameplayPage.DanCalcEnabled().Pos(24),
+                    GameplayPage.DanCalcDebug().Pos(26).Conditional(options.DanCalcEnabled.Get)
+                )
+
+        let scroll =
+            TallPageContent.Create(28, settings)
+            |> ScrollContainer
+            |> _.Position(Position.Shrink(PAGE_MARGIN_X, PAGE_MARGIN_Y).SliceL(PAGE_ITEM_WIDTH))
+
+        Container(NodeType.None).With(scroll, preview) :> Widget
 
     override this.Title = %"gameplay"

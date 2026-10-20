@@ -1,13 +1,18 @@
 namespace Interlude.Features.Score
 
+open System.Threading
 open Percyqaz.Common
 open Percyqaz.Flux.Graphics
 open Percyqaz.Flux.UI
+open Percyqaz.Flux.Windowing
 open Prelude
+open Prelude.Charts
 open Prelude.Mods
 open Prelude.Gameplay.Scoring
 open Prelude.Data.UserDatabase
 open Prelude.Calculator
+open Prelude.Calculator.Dan
+open Interlude.Options
 open Interlude.UI
 
 #nowarn "3370"
@@ -18,6 +23,11 @@ type Sidebar(stats: ScoreScreenStats ref, score_info: ScoreInfo) =
     static let JUDGEMENT_TEXT_MAX_HEIGHT = 70.0f
 
     let show_more_info = Setting.simple false
+    let show_dan = options.DanCalcEnabled.Value
+
+    let mutable dan_label = "--"
+    let mutable dan_accent = Color.White
+    let mutable dan_generation = 0
 
     let mod_string = ModState.format(score_info.Rate, score_info.Mods)
 
@@ -33,7 +43,49 @@ type Sidebar(stats: ScoreScreenStats ref, score_info: ScoreInfo) =
         else
             sprintf "%iK" score_info.WithMods.Keys
 
+    do
+        if show_dan then
+            let generation = Interlocked.Increment(&dan_generation)
+            let rate = score_info.Rate
+            let mods_for_dan = Map.remove "mirror" score_info.WithMods.ModsSelected
+            let note_data = (ModState.apply mods_for_dan score_info.Chart).ToNoteData()
+            let chart_hash = score_info.ChartMeta.Hash
+
+            let mod_fingerprint =
+                mods_for_dan
+                |> ModState.in_priority_order
+                |> Seq.map (fun (id, _, state) -> sprintf "%s:%i" id state)
+                |> String.concat ","
+
+            let bpm = score_info.ChartMeta.BPM
+
+            let od =
+                score_info.ChartMeta.Origins
+                |> Seq.tryPick (function
+                    | ChartOrigin.Osu o -> Some(float o.SourceOD)
+                    | _ -> None)
+                |> Option.defaultValue Adapter.DEFAULT_OD
+
+            async {
+                let result =
+                    DanCalc.analyze_cached(chart_hash, mod_fingerprint, rate, note_data, bpm, od)
+
+                GameThread.defer (fun () ->
+                    if generation = dan_generation then
+                        match result with
+                        | Some dan ->
+                            dan_label <- Format.format dan
+                            dan_accent <- dan.Accent
+                        | None ->
+                            dan_label <- "--"
+                            dan_accent <- Color.White
+                )
+            }
+            |> Async.Start
+
     override this.Init(parent: Widget) : unit =
+        let metrics = Position.ShrinkT(530.0f).SliceT(70.0f).ShrinkX(25.0f)
+
         this.Add(
             Text(sprintf "%s  %s" Icons.ZAP mod_string)
                 .Align(Alignment.CENTER)
@@ -41,18 +93,43 @@ type Sidebar(stats: ScoreScreenStats ref, score_info: ScoreInfo) =
             Text(fun () -> sprintf "%s  %s  •  %s" Icons.BAR_CHART keymode_label score_info.Ruleset.Name)
                 .Color(Colors.text_subheading)
                 .Align(Alignment.CENTER)
-                .Position(Position.ShrinkT(90.0f).SliceT(70.0f).ShrinkX(25.0f)),
-            Text(sprintf "%s %.2f" Icons.STAR score_info.Rating.Overall)
-                .Color(Colors.white, Difficulty.color score_info.Rating.Overall)
-                .Align(Alignment.LEFT)
-                .Position(Position.ShrinkT(530.0f).SliceT(70.0f).ShrinkX(25.0f)),
-            Text(fun () -> sprintf "%ix" score_info.Scoring.BestCombo)
-                .Align(Alignment.CENTER)
-                .Position(Position.ShrinkT(530.0f).SliceT(70.0f).ShrinkX(25.0f)),
-            Text(sprintf "%.2f" score_info.Performance)
-                .Color(Colors.white, Difficulty.color score_info.Performance)
-                .Align(Alignment.RIGHT)
-                .Position(Position.ShrinkT(530.0f).SliceT(70.0f).ShrinkX(25.0f)),
+                .Position(Position.ShrinkT(90.0f).SliceT(70.0f).ShrinkX(25.0f))
+        )
+
+        if show_dan then
+            this.Add(
+                Text(sprintf "%s %.2f" Icons.STAR score_info.Rating.Overall)
+                    .Color(Colors.white, Difficulty.color score_info.Rating.Overall)
+                    .Align(Alignment.LEFT)
+                    .Position(metrics.SlicePercentL(0.25f)),
+                Text(fun () -> dan_label)
+                    .Color(fun () -> (dan_accent, Colors.shadow_2))
+                    .Align(Alignment.CENTER)
+                    .Position(metrics.SlicePercentL(0.25f, 0.25f)),
+                Text(fun () -> sprintf "%ix" score_info.Scoring.BestCombo)
+                    .Align(Alignment.CENTER)
+                    .Position(metrics.SlicePercentL(0.5f, 0.25f)),
+                Text(sprintf "%.2f" score_info.Performance)
+                    .Color(Colors.white, Difficulty.color score_info.Performance)
+                    .Align(Alignment.RIGHT)
+                    .Position(metrics.SlicePercentR(0.25f))
+            )
+        else
+            this.Add(
+                Text(sprintf "%s %.2f" Icons.STAR score_info.Rating.Overall)
+                    .Color(Colors.white, Difficulty.color score_info.Rating.Overall)
+                    .Align(Alignment.LEFT)
+                    .Position(metrics),
+                Text(fun () -> sprintf "%ix" score_info.Scoring.BestCombo)
+                    .Align(Alignment.CENTER)
+                    .Position(metrics),
+                Text(sprintf "%.2f" score_info.Performance)
+                    .Color(Colors.white, Difficulty.color score_info.Performance)
+                    .Align(Alignment.RIGHT)
+                    .Position(metrics)
+            )
+
+        this.Add(
             Button(
                 (fun () ->
                     sprintf
